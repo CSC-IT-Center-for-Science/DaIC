@@ -48,16 +48,19 @@ class DaICManager(object):
                 print "CtlRq", raw
                 msg = json.loads(raw)
                 # XXX: Implement proper parser and dispatcher
-                elif msg.get('cmd') == 'active':
+                if msg.get('cmd') == 'active':
                     self.ctl.send(json.dumps(dict([(k, "%s" % v)
                                   for k, v in self.clients.items()])))
                 elif msg.get('cmd') == 'containers':
-                    cs = [{'id': x.uuid, 'name': x.name} for x in self.db.query(Resource).all()]
+                    cs = [{'id': x.uuid, 'name': x.name} for x
+                          in self.db.query(Resource).all()]
                     self.ctl.send(json.dumps(cs))
                 elif msg.get('cmd') == 'clients:fetch':
                     container = msg.get('container')
-                    if container in set([x.uuid for x in self.db.query(Resource).all()]):
-                        cmd = {'cmd': 'fetch:container', 'container': container}
+                    if container in set([x.uuid for x
+                                         in self.db.query(Resource).all()]):
+                        cmd = {'cmd': 'fetch:container',
+                               'container': container}
                         self.publisher.send(json.dumps(cmd))
                         self.ctl.send("ok")
                     else:
@@ -82,21 +85,3 @@ class DaICManager(object):
             if (ts_now - last_update).total_seconds() < 10:
                 result[client] = last_update
         return result
-
-
-def main():
-    import argparse
-    import yaml
-    parser = argparse.ArgumentParser()
-    parser.add_argument('config_file')
-    args = parser.parse_args()
-
-    config = yaml.load(file(args.config_file))
-
-    manager = DaICManager(config)
-    manager.setup_zmq()
-    manager.setup_db()
-    manager.loop()
-
-if __name__ == '__main__':
-    main()
