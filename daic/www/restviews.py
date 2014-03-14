@@ -1,16 +1,12 @@
 from flask import (abort, jsonify, request, send_from_directory)
 from werkzeug.utils import secure_filename
 
+import json
 import uuid
 import os
 
 from daic.models import Resource, UploadToken
 from daic.www import app, with_db_session
-
-
-@app.route('/')
-def api_root():
-    return '/v1'
 
 
 @app.route('/v1')
@@ -26,9 +22,9 @@ def api_root_v1():
 @app.route('/v1/containers', methods=['GET', 'POST'])
 @with_db_session
 def api_list_containers(session):
-    return jsonify({'status': 'ok',
-                    'containers': [{'id': x.uuid, 'name': x.name}
-                                   for x in session.query(Resource).all()]})
+    return json.dumps([{'id': x.uuid, 'name': x.name}
+                       for x in session.query(Resource).all()],
+                      indent=4)
 
 
 @with_db_session

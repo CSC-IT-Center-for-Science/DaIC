@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+    <script src="/static/js/jquery.js"></script>
+    <script src="http://ajax.aspnetcdn.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
+    <script src="/static/js/underscore.js"></script>
+    <script src="/static/js/backbone.js"></script>
+
+</head>
+
+<body>
+<div class=page>
+    <h1>Files</h1>
+    <div id="containers"></div>
+</div>
+
+
+</body>
+
+<script id="container-template" type="x-jquery-tmpl">
+    <div>
+        ${name}
+        <button>Delete</button>
+    </div>
+</script>
+
+<script src="/static/js/daicapp.js"></script>
+
+</html>
