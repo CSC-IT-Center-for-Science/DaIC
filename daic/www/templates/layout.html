@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+    <script src="/static/js/jquery.js"></script>
+    <script src="http://ajax.aspnetcdn.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
+    <script src="/static/js/underscore.js"></script>
+    <script src="/static/js/backbone.js"></script>
+    <link href="/static/css/bootstrap.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="navbar navbar-inverse" role="navigation">
+        <div class="container">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">File browser</a>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="/">List</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="content" class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+
+{% block offbodyfooter %}{% endblock %}
+</html>

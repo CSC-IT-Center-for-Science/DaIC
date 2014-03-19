@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="row">
+    <div class="col-md-8 col-sm-8 col-xs-8">
+        <h2>Files</h2>
+        <div id="files"></div>
+    </div>
+
+    <div class="col-md-4 col-sm-4 col-xs-4">
+        <h2>Upload files</h2>
+        <form action="/v1/containers/{{container}}/files" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <input type="file" name="file" class="btn-fileselect btn btn-default btn-sm">
+            </div>
+            <input type="submit" value="Upload" class="btn-upload btn btn-default btn-sm">
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block offbodyfooter %}
+    <script id="file-template" type="x-jquery-tmpl">
+        <div class="row">
+            <div class="col-md-8 col-sm-8 col-xs-8"><div>
+                <input type="checkbox">
+                <a href="/v1/containers/{{container}}/files/${uuid}">${name}</a></div>
+            </div>
+            <div class="col-md-4 col-sm-4 col-xs-4">
+                <div  class="btn-group">
+                    <button type="button" class="btn-download btn btn-default btn-xs" data="${id}" title="Download">
+                        <span class="glyphicon glyphicon-download" alt="Download"></span>
+                    </button>
+                    <button type="button" class="btn-remove btn btn-default btn-xs" data="${id}" title="Remove">
+                        <span class="glyphicon glyphicon-remove"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </script>
+    <script src="/static/js/daic/files.js"></script>
+{% endblock %}

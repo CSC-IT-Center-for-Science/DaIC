@@ -1,20 +1,21 @@
 var Containers = {};
 
+Containers.Container = Backbone.Model.extend({
+    defaults: {
+        name: '',
+    }
+});
+
 Containers.Collection = Backbone.Collection.extend({
+    model: Containers.Container,
     url: '/v1/containers'
 });
 
 Containers.Views = {};
 
 Containers.Views.Edit = Backbone.View.extend({
-    change: function () {
-        console.log("change");
-        this.model.set({
-            name: $(this.el).children('input').val()
-        });
-        this.model.save();
-    },
     destroy: function () {
+        console.log("destroy");
         var el = this.el;
         this.model.destroy({
             success: function () {
@@ -24,17 +25,10 @@ Containers.Views.Edit = Backbone.View.extend({
         });
     },
     events: {
-        'click .btn-download': 'open',
-        'click .btn-remove': 'destroy',
-        'change input': 'change'
+        'click .btn-collection-remove': 'destroy',
     },
-
-    open: function() {
-        window.open('/v1/containers/download/'+this.model.get("id"));
-    },
-
     initialize: function () {
-        _(this).bindAll('change', 'destroy', 'render');
+        _(this).bindAll('destroy', 'render');
     },
     render: function () {
         $('#container-template').tmpl(this.model.toJSON()).appendTo(this.el);
@@ -65,11 +59,9 @@ Containers.Views.List = Backbone.View.extend({
 });
 
 $(function () {
-    var collection = new Containers.Collection(),
-        view = new Containers.Views.List({
-            collection: collection
-        });
-
+    var collection = new Containers.Collection();
+    var view = new Containers.Views.List({
+        collection: collection
+    });
     collection.fetch();
-
 });

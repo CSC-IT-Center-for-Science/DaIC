@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 from daic.utils import config_to_db_session
-from daic.models import Base, Resource
+from daic.models import Base, File, Container, Content
 
 POLL_TIMEOUT = 1000
 IDLE_TIMEOUT = 5
@@ -53,25 +53,29 @@ class DaICManager(object):
                                   for k, v in self.clients.items()])))
                 elif msg.get('cmd') == 'containers':
                     cs = [{'id': x.uuid, 'name': x.name} for x
-                          in self.db.query(Resource).all()]
+                          in self.db.query(File).all()]
                     self.ctl.send(json.dumps(cs))
                 elif msg.get('cmd') == 'clients:fetch':
                     container = msg.get('container')
                     if container in set([x.uuid for x
-                                         in self.db.query(Resource).all()]):
+                                         in self.db.query(File).all()]):
                         cmd = {'cmd': 'fetch:container',
                                'container': container}
                         self.publisher.send(json.dumps(cmd))
                         self.ctl.send("ok")
                     else:
                         self.ctl.send("no such container")
+                else:
+                    self.ctl.send("unknown command")
 
             if self.sync in socks:
                 raw = self.sync.recv()
                 print "PullRq", raw
                 msg = json.loads(raw)
-                if 'id' in msg:
+                if 'id' in msg and msg.get('cmd') == 'pong':
                     self.clients[msg['id']] = datetime.utcnow()
+                if 'id' in msg and msg.get('cmd') == 'ui:delete-file':
+                    print "Deleted file", msg.get('id')
 
             if (now - prev).total_seconds() > IDLE_TIMEOUT:
                 self.clients = self.prune_dead_clients(now, self.clients)

@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-8 col-sm-8 col-xs-8">
+        <h2>Containers</h2>
+        <div id="containers"></div>
+    </div>
+
+    <div id="add-container" class="col-md-4 col-sm-4 col-xs-4">
+        <h2>New Container</h2>
+        <form action="/v1/containers" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="containerName">Container name</label>
+                <input id="containerName" type="text" name="name" class="form-control" placeholder="Enter name">
+            </div>
+            <input type="submit" value="Create" class="btn-create btn btn-default btn-sm">
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block offbodyfooter %}
+    <script id="container-template" type="x-jquery-tmpl">
+        <div class="row">
+            <div class="col-md-4 col-sm-4 col-xs-4">
+                    <a href="/containers/${id}">${name}</a>
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-2">
+                <div class="btn-group">
+                    <button type="button" class="btn-collection-remove btn btn-default btn-xs" data="${id}">
+                        <span class="glyphicon glyphicon-remove"></span> Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script src="/static/js/daic/containers.js"></script>
+{% endblock %}

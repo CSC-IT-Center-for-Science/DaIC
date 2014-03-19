@@ -1,3 +1,4 @@
+import zmq
 import yaml
 import argparse
 
@@ -13,6 +14,10 @@ def main():
 
     config = yaml.load(file(args.config_file))
     upload_folder = config.get('uploap_folder', '/tmp/flask')
+
+    ctx = zmq.Context()
+    app.config['zmqsock'] = ctx.socket(zmq.PUSH)
+    app.config['zmqsock'].connect('tcp://localhost:5566')
 
     app.config['UPLOAD_FOLDER'] = upload_folder
     app.config['DB'] = config_to_db_session(config, Base)

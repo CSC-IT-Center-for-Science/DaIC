@@ -1,12 +1,29 @@
-var Containers = {};
+var Files = {};
 
-Containers.Collection = Backbone.Collection.extend({
-    url: '/v1/containers'
+Files.containerId = _.last(window.location.pathname.split("/"));
+
+Files.File = Backbone.Model.extend({
+    defaults: {
+        name: '',
+        uuid: '',
+    }
 });
 
-Containers.Views = {};
+Files.Collection = Backbone.Collection.extend({
+    url: ['/v1/containers', Files.containerId].join("/"),
+    model: Files.File,
+    parse: function(response) {
+        if (_.has(response, "files")) {
+            return response["files"];
+        } else {
+            return [];
+        }
+    }
+});
 
-Containers.Views.Edit = Backbone.View.extend({
+Files.Views = {};
+
+Files.Views.Edit = Backbone.View.extend({
     change: function () {
         console.log("change");
         this.model.set({
@@ -15,6 +32,7 @@ Containers.Views.Edit = Backbone.View.extend({
         this.model.save();
     },
     destroy: function () {
+         console.log("destroy");
         var el = this.el;
         this.model.destroy({
             success: function () {
@@ -30,22 +48,22 @@ Containers.Views.Edit = Backbone.View.extend({
     },
 
     open: function() {
-        window.open('/v1/containers/download/'+this.model.get("id"));
+        window.open(['/v1/containers', Files.containerId, 'files', this.model.get("uuid"), "download"].join("/"));
     },
 
     initialize: function () {
         _(this).bindAll('change', 'destroy', 'render');
     },
     render: function () {
-        $('#container-template').tmpl(this.model.toJSON()).appendTo(this.el);
+        $('#file-template').tmpl(this.model.toJSON()).appendTo(this.el);
         this.delegateEvents();
     }
 });
 
-Containers.Views.List = Backbone.View.extend({
+Files.Views.List = Backbone.View.extend({
     append: function (model) {
-        var p = $('<div class="row">').appendTo('#containers'),
-            view = new Containers.Views.Edit({
+        var p = $('<div class="row">').appendTo('#files'),
+            view = new Files.Views.Edit({
                 model: model,
                 el: p[0]
             });
@@ -65,8 +83,8 @@ Containers.Views.List = Backbone.View.extend({
 });
 
 $(function () {
-    var collection = new Containers.Collection(),
-        view = new Containers.Views.List({
+    var collection = new Files.Collection(),
+        view = new Files.Views.List({
             collection: collection
         });
 
