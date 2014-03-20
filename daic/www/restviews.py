@@ -37,10 +37,11 @@ def get_container(session, container_id):
 @with_db_session
 def get_file(session, container_id, file_id):
     container = get_container(container_id)
+    print container_id, file_id, container
     if not container:
         abort(404)
-    return session.query(File).filter_by(container = container.id,
-                                         uuid = file_id).first()
+    return session.query(File).filter_by(container=container.id,
+                                         uuid=file_id).first()
 
 
 @with_db_session
@@ -48,12 +49,12 @@ def get_container_token(session, container_token):
     return session.query(UploadToken).filter_by(uuid=container_token).first()
 
 
-@app.route('/v1/containers/<container_id>', methods=['GET'])
+@app.route('/v1/containers/<container_id>/files', methods=['GET'])
 @with_db_session
 def api_get_container(session, container_id):
     container = get_container(container_id)
     if container:
-        files = [{'uuid': x.uuid, 'name': x.name} for x
+        files = [{'id': x.uuid, 'name': x.name} for x
                  in session.query(File).filter(File.container == container.id)]
         return jsonify({'id': container.uuid,
                         'name': container.name,
@@ -188,7 +189,9 @@ def api_delete_file(session, container_id, file_id):
 @with_db_session
 def download_container(session, container_id, file_id):
     resource = get_file(container_id, file_id)
+    print resource, "<-"
     if resource:
+        print os.path.join(app.config['UPLOAD_FOLDER'], container_id), resource.name
         return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'],
                                                 container_id), resource.name)
     else:

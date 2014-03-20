@@ -5,12 +5,12 @@ Files.containerId = _.last(window.location.pathname.split("/"));
 Files.File = Backbone.Model.extend({
     defaults: {
         name: '',
-        uuid: '',
+        id: '',
     }
 });
 
 Files.Collection = Backbone.Collection.extend({
-    url: ['/v1/containers', Files.containerId].join("/"),
+    url: ['/v1/containers', Files.containerId, 'files'].join("/"),
     model: Files.File,
     parse: function(response) {
         if (_.has(response, "files")) {
@@ -48,7 +48,7 @@ Files.Views.Edit = Backbone.View.extend({
     },
 
     open: function() {
-        window.open(['/v1/containers', Files.containerId, 'files', this.model.get("uuid"), "download"].join("/"));
+        window.open(['/v1/containers', Files.containerId, 'files', this.model.get("id"), "download"].join("/"));
     },
 
     initialize: function () {
