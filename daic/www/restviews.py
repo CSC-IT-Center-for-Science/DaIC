@@ -49,6 +49,7 @@ def get_container_token(session, container_token):
     return session.query(UploadToken).filter_by(uuid=container_token).first()
 
 
+@app.route('/v1/containers/<container_id>', methods=['GET'])
 @app.route('/v1/containers/<container_id>/files', methods=['GET'])
 @with_db_session
 def api_get_container(session, container_id):
@@ -134,7 +135,10 @@ def api_create_file(session, container_id):
             session.add(file)
 #            session.delete(token)
             session.commit()
-        return jsonify({'id': file_uuid})
+            return jsonify({'id': file_uuid})
+        else:
+            print "no files to upload"
+            abort(400)
 
 
 @app.route('/v1/containers/<container_id>', methods=['DELETE'])
