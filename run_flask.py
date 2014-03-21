@@ -19,6 +19,9 @@ def main():
     app.config['zmqsock'] = ctx.socket(zmq.PUSH)
     app.config['zmqsock'].connect('tcp://localhost:5566')
 
+    app.config['zmqreqsock'] = ctx.socket(zmq.REQ)
+    app.config['zmqreqsock'].connect('tcp://localhost:5678')
+
     app.config['UPLOAD_FOLDER'] = upload_folder
     app.config['DB'] = config_to_db_session(config, Base)
     app.run(debug=config.get('debug'))

@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <h2>Connectors</h2>
+        <div id="connectors"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block offbodyfooter %}
+    <script id="connector-template" type="x-jquery-tmpl">
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-xs-12">
+                <a href="/connectors/${id}">${id} (Last seen: ${updated})</a>
+            </div>
+        </div>
+    </script>
+
+    <script src="/static/js/daic/connectors.js"></script>
+{% endblock %}

@@ -7,13 +7,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--command')
     parser.add_argument('--container')
+    parser.add_argument('--connector')
     args = parser.parse_args()
     cmd = args.command
     container = args.container
+    connector = args.connector
 
     encoded = {'cmd': cmd}
     if container:
         encoded['container'] = container
+
+    if connector:
+        encoded['connector'] = connector
 
     print "Rq:", cmd
     ctx = zmq.Context()

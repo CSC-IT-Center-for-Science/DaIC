@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <h2>Files</h2>
+        <div id="connectorfiles"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block offbodyfooter %}
+    <script id="connectorfile-template" type="x-jquery-tmpl">
+        <div class="row">
+            <div class="col-md-8 col-sm-8 col-xs-8">
+                ${name}
+            </div>
+            <div class="col-md-4 col-sm-4 col-xs-4">
+                <div  class="btn-group">
+                    <button type="button" class="btn-download btn btn-default btn-xs" data="${id}" title="Download">
+                        <span class="glyphicon glyphicon-download" alt="Download"></span>
+                    </button>
+                    <button type="button" class="btn-remove btn btn-default btn-xs" data="${id}" title="Remove">
+                        <span class="glyphicon glyphicon-remove"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </script>
+    <script src="/static/js/daic/connectorfiles.js"></script>
+{% endblock %}

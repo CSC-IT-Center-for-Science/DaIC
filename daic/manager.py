@@ -49,22 +49,19 @@ class DaICManager(object):
                 msg = json.loads(raw)
                 # XXX: Implement proper parser and dispatcher
                 if msg.get('cmd') == 'active':
-                    self.ctl.send(json.dumps(dict([(k, "%s" % v)
+                    self.ctl.send(json.dumps(dict([(k, "%s" % v.get('updated'))
                                   for k, v in self.clients.items()])))
-                elif msg.get('cmd') == 'containers':
-                    cs = [{'id': x.uuid, 'name': x.name} for x
-                          in self.db.query(File).all()]
-                    self.ctl.send(json.dumps(cs))
-                elif msg.get('cmd') == 'clients:fetch':
-                    container = msg.get('container')
-                    if container in set([x.uuid for x
-                                         in self.db.query(File).all()]):
-                        cmd = {'cmd': 'fetch:container',
-                               'container': container}
-                        self.publisher.send(json.dumps(cmd))
-                        self.ctl.send("ok")
+                elif msg.get('cmd') == 'list:files':
+                    connector = msg.get('connector')
+                    if connector in self.clients:
+                        request = {'cmd': 'list:files'}
+                        self.clients[connector]['sock'].send(json.dumps(request))
+                        resp = self.clients[connector]['sock'].recv()
+                        encoded = json.loads(resp)
+                        print encoded
+                        self.ctl.send(json.dumps(encoded))
                     else:
-                        self.ctl.send("no such container")
+                        self.ctl.send("invalid command")
                 else:
                     self.ctl.send("unknown command")
 
@@ -72,8 +69,17 @@ class DaICManager(object):
                 raw = self.sync.recv()
                 print "PullRq", raw
                 msg = json.loads(raw)
-                if 'id' in msg and msg.get('cmd') == 'pong':
-                    self.clients[msg['id']] = datetime.utcnow()
+                if 'id' in msg and msg.get('msg') == 'pong':
+                    if msg['id'] not in self.clients:
+                        self.clients[msg['id']] = {}
+                        if 'endpoint' in msg:
+                            sock = self.ctx.socket(zmq.REQ)
+                            sock.connect(msg['endpoint'])
+                            self.clients[msg['id']]['sock'] = sock
+                        else:
+                            continue
+                    self.clients[msg['id']]['updated'] = datetime.utcnow()
+
                 if 'id' in msg and msg.get('cmd') == 'ui:delete-file':
                     print "Deleted file", msg.get('id')
 
@@ -85,7 +91,9 @@ class DaICManager(object):
 
     def prune_dead_clients(self, ts_now, clients):
         result = {}
-        for client, last_update in clients.items():
-            if (ts_now - last_update).total_seconds() < 10:
-                result[client] = last_update
+        for client, d in clients.items():
+            if 'updated' in d:
+                last_update = d['updated']
+                if (ts_now - last_update).total_seconds() < 10:
+                    result[client] = d
         return result
