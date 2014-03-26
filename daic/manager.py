@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 from daic.utils import config_to_db_session
-from daic.models import Base, File, Container, Content
+from daic.models import Base
 
 POLL_TIMEOUT = 1000
 IDLE_TIMEOUT = 5
@@ -33,6 +33,67 @@ class DaICManager(object):
     def setup_db(self):
         self.db = config_to_db_session(self.config, Base)
 
+    def _poll_sock(self, sock, timeout):
+        poll = zmq.Poller()
+        poll.register(sock, zmq.POLLIN)
+        socks = dict(poll.poll(timeout))
+        if sock in socks:
+            return (True, sock.recv())
+        else:
+            return (False, None)
+
+    def _dispatch_command(self, msg):
+        if 'cmd' in msg:
+            cmd = msg['cmd']
+            try:
+                method = getattr(self, 'handle_%s' % cmd)
+                response = method(**msg)
+                return response
+            except AttributeError:
+                print "Invalid cmd message received"
+                return json.dumps({'error': 'unknown command'})
+        else:
+            return json.dumps({'error': 'invalid command'})
+
+    def handle_active(self, **options):
+        return json.dumps(dict([(k, "%s" % v.get('updated')) for k, v
+                                in self.clients.items()]))
+
+    def handle_list_files(self, **options):
+        connector = options.get('connector')
+        if connector in self.clients:
+            request = {'cmd': 'list:files'}
+            client_sock = self.clients[connector].get('sock')
+            if client_sock:
+                client_sock.send(json.dumps(request))
+                status, resp = self._poll_sock(client_sock, POLL_TIMEOUT)
+                if status:
+                    encoded = json.loads(resp)
+                    return json.dumps(encoded)
+                else:
+                    print "no response from connector"
+                    client_sock.setsockopt(zmq.LINGER, 0)
+                    client_sock.close()
+                    self.clients.pop(connector)
+                    return json.dumps([])
+            else:
+                return json.dumps([])
+
+    def handle_pong(self, **options):
+        if 'id' in options:
+            id = options['id']
+            if id not in self.clients:
+                self.clients[id] = {}
+                if 'endpoint' in options:
+                    endpoint = options['endpoint']
+                    sock = self.ctx.socket(zmq.REQ)
+                    try:
+                        sock.connect(endpoint)
+                        self.clients[id]['sock'] = sock
+                    except zmq.error.ZMQError:
+                        print "received invalid endpoint", endpoint
+            self.clients[id]['updated'] = datetime.utcnow()
+
     def loop(self):
         prev = now = datetime.utcnow()
         while True:
@@ -45,43 +106,14 @@ class DaICManager(object):
 
             if self.ctl in socks:
                 raw = self.ctl.recv()
-                print "CtlRq", raw
                 msg = json.loads(raw)
-                # XXX: Implement proper parser and dispatcher
-                if msg.get('cmd') == 'active':
-                    self.ctl.send(json.dumps(dict([(k, "%s" % v.get('updated'))
-                                  for k, v in self.clients.items()])))
-                elif msg.get('cmd') == 'list:files':
-                    connector = msg.get('connector')
-                    if connector in self.clients:
-                        request = {'cmd': 'list:files'}
-                        self.clients[connector]['sock'].send(json.dumps(request))
-                        resp = self.clients[connector]['sock'].recv()
-                        encoded = json.loads(resp)
-                        print encoded
-                        self.ctl.send(json.dumps(encoded))
-                    else:
-                        self.ctl.send("invalid command")
-                else:
-                    self.ctl.send("unknown command")
+                response = self._dispatch_command(msg)
+                self.ctl.send(response)
 
             if self.sync in socks:
                 raw = self.sync.recv()
-                print "PullRq", raw
                 msg = json.loads(raw)
-                if 'id' in msg and msg.get('msg') == 'pong':
-                    if msg['id'] not in self.clients:
-                        self.clients[msg['id']] = {}
-                        if 'endpoint' in msg:
-                            sock = self.ctx.socket(zmq.REQ)
-                            sock.connect(msg['endpoint'])
-                            self.clients[msg['id']]['sock'] = sock
-                        else:
-                            continue
-                    self.clients[msg['id']]['updated'] = datetime.utcnow()
-
-                if 'id' in msg and msg.get('cmd') == 'ui:delete-file':
-                    print "Deleted file", msg.get('id')
+                response = self._dispatch_command(msg)
 
             if (now - prev).total_seconds() > IDLE_TIMEOUT:
                 self.clients = self.prune_dead_clients(now, self.clients)

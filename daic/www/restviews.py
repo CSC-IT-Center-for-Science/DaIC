@@ -58,7 +58,7 @@ def api_list_connector_files(socket, connector_id):
     proxy.
     XXX: REQ socket operations might hang if manager process is unavailable
     """
-    command = {'cmd': 'list:files', 'connector': connector_id}
+    command = {'cmd': 'list_files', 'connector': connector_id}
     socket.send(json.dumps(command))
     resp = socket.recv()
     encoded = json.loads(resp)

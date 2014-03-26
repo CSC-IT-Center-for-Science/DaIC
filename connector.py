@@ -5,83 +5,101 @@ import requests
 import os
 import errno
 
-
 POLL_TIMEOUT = 5
 
 
-def main(config):
-    endpoint = config['endpoint']
-    rest_endpoint = config['rest_endpoint']
-    id = uuid.uuid1()
-    ctx = zmq.Context()
-    subsock = ctx.socket(zmq.SUB)
-    subsock.connect('tcp://localhost:5555')
-    subsock.setsockopt(zmq.SUBSCRIBE, b'')
+class Connector(object):
+    def __init__(self, config):
+        self.endpoint = config['endpoint']
+        self.rest_endpoint = config['rest_endpoint']
+        self.id = uuid.uuid1()
 
-    reqsock = ctx.socket(zmq.PUSH)
-    reqsock.connect('tcp://localhost:5566')
-    repsock = ctx.socket(zmq.REP)
-    repsock.bind(endpoint)
+        self.ctx = zmq.Context()
+        self.subscriber_sock = self.ctx.socket(zmq.SUB)
+        self.subscriber_sock.connect('tcp://localhost:5555')
+        self.subscriber_sock.setsockopt(zmq.SUBSCRIBE, b'')
 
-    pong_msg = {
-        'msg': 'pong',
-        'id': id.get_hex(),
-        'endpoint': endpoint,
-        'status': 'ok'
-    }
+        self.push_sock = self.ctx.socket(zmq.PUSH)
+        self.push_sock.connect('tcp://localhost:5566')
 
-    path = config['connector_data_dir']
-    try:
-        os.makedirs(path)
-    except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise OSError("Unable to create directory")
+        self.reply_sock = self.ctx.socket(zmq.REP)
+        self.reply_sock.bind(self.endpoint)
 
-    poller = zmq.Poller()
-    poller.register(subsock, zmq.POLLIN)
-    poller.register(repsock, zmq.POLLIN)
+        self.poller = zmq.Poller()
+        self.poller.register(self.subscriber_sock, zmq.POLLIN)
+        self.poller.register(self.reply_sock, zmq.POLLIN)
 
-    while True:
+        self.data_dir = config['connector_data_dir']
+
         try:
-            socks = dict(poller.poll(POLL_TIMEOUT))
-        except KeyboardInterrupt:
-            break
-
-        if subsock in socks:
-            raw = subsock.recv()
-            print "Connector:SUB:", raw
-            msg = json.loads(raw)
-            if msg.get('cmd') == b'ping':
-                reqsock.send(json.dumps(pong_msg))
-            elif msg.get('cmd') == 'report:localresource':
-                if msg.get('connector_id') == id.get_hex():
-                    os.listdir(config.data_dir)
-            elif msg.get('cmd') == 'fetch:container':
-                container_id = msg.get('container')
-                print "Fetching file with id: %s" % container_id
-                r = requests.get("%s/containers/%s" % (rest_endpoint,
-                                                       container_id))
-                resp = r.json()
-                filename = resp.get('filename')
-                r = requests.get("%s/containers/download/%s" % (rest_endpoint,
-                                                                container_id))
-                file_path = '/tmp/connector/%s-%s-%s' % (id.get_hex(),
-                                                         container_id,
-                                                         filename)
-                with open(file_path, 'wb') as fd:
-                    for chunk in r.iter_content(1024):
-                        fd.write(chunk)
-                print "File stored locally with path: %s" % file_path
+            os.makedirs(self.data_dir)
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(self.data_dir):
+                pass
             else:
-                reqsock.send(json.dumps(''.join(reversed([x for x in msg]))))
+                raise OSError("Unable to create directory")
 
-        elif repsock in socks:
-            raw = repsock.recv()
-            print "Connector:REP", raw
+    def run(self):
+        while True:
+            try:
+                socks = dict(self.poller.poll(POLL_TIMEOUT))
+            except KeyboardInterrupt:
+                break
 
-            repsock.send(json.dumps(os.listdir(path)))
+            if self.subscriber_sock in socks:
+                raw = self.subscriber_sock.recv()
+                print "Connector:SUB:", raw
+                msg = json.loads(raw)
+                if 'cmd' in msg:
+                    cmd = msg['cmd']
+                    try:
+                        method = getattr(self, 'handle_%s' % cmd)
+                    except AttributeError:
+                        print "Invalid subscribe message received"
+                    method(**msg)
+                else:
+                    print "Unknown msg", msg
+
+            elif self.reply_sock in socks:
+                raw = self.reply_sock.recv()
+                print "Connector:REP", raw
+                self.reply_sock.send(json.dumps(os.listdir(self.data_dir)))
+
+    def _get_pong_msg(self):
+        return {
+            'cmd': 'pong',
+            'id': self.id.get_hex(),
+            'endpoint': self.endpoint,
+            'status': 'ok'
+        }
+
+    def handle_ping(self, **options):
+        self.push_sock.send(json.dumps(self._get_pong_msg()))
+
+    def handle_fetch_file(self, **options):
+        container_id = options.get('container_id')
+        file_id = options.get('file_id')
+        print "Fetching file with id: %s" % container_id
+        r = requests.get("%s/containers/%s/files/%s" % (self.rest_endpoint,
+                                                        container_id,
+                                                        file_id))
+        resp = r.json()
+        filename = resp.get('filename')
+        r = requests.get("%s/containers/download/%s" % (self.rest_endpoint,
+                                                        container_id))
+        file_path = '/tmp/connector/%s-%s-%s' % (self.id.get_hex(),
+                                                 container_id,
+                                                 filename)
+        with open(file_path, 'wb') as fd:
+            for chunk in r.iter_content(1024):
+                fd.write(chunk)
+        print "File stored locally with path: %s" % file_path
+
+
+def main(config):
+    connector = Connector(config)
+    connector.run()
+
 
 if __name__ == '__main__':
     import argparse
