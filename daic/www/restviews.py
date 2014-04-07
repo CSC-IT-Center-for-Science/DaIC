@@ -133,12 +133,33 @@ def api_get_container(session, container_id):
         return abort(404)
 
 
-@app.route('/v1/containers/<container_id>', methods=['POST'])
+@app.route('/v1/containers/<container_id>/clone', methods=['POST'])
+@with_db_session
 def api_clone_container(session, container_id):
-    containers = [x.uuid for x in session.query(Container).all()]
-
+    containers = dict([(x.uuid, x) for x in session.query(Container).all()])
+    print containers
     if container_id not in containers:
         return abort(404)
+    container = containers[container_id]
+
+    clone = Container()
+    clone.name = container.name
+    clone.create_ts = datetime.utcnow()
+    session.add(clone)
+    session.commit()
+    session.refresh(clone)
+
+    for file_obj in session.query(File).filter_by(container=container.id).\
+            all():
+        file_clone = File()
+        file_clone.name = file_obj.name
+        file_clone.content = file_obj.content
+        file_clone.container = clone.id
+        file_clone.meta = ""
+        session.add(file_clone)
+        session.commit()
+
+    return jsonify({'uuid': clone.uuid})
 
 
 @app.route('/v1/containers/<container_id>/files/<file_id>', methods=['GET'])
@@ -170,13 +191,7 @@ def api_create_container(session):
         if 'name' in params:
             container = Container()
             container.name = params['name']
-            container.uuid = uuid.uuid1().get_hex()
             container.create_ts = datetime.utcnow()
-            try:
-                os.mkdir(os.path.join(app.config['UPLOAD_FOLDER'],
-                                      container.uuid))
-            except IOError:
-                abort(400)
             session.add(container)
             session.commit()
             return jsonify({'uuid': container.uuid})
