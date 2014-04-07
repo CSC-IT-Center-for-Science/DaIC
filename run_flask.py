@@ -14,6 +14,7 @@ def main():
 
     config = yaml.load(file(args.config_file))
     upload_folder = config.get('uploap_folder', '/tmp/flask')
+    content_folder = config.get('content_folder', '/tmp/daic')
 
     ctx = zmq.Context()
     app.config['zmqsock'] = ctx.socket(zmq.PUSH)
@@ -23,6 +24,7 @@ def main():
     app.config['zmqreqsock'].connect('tcp://localhost:5678')
 
     app.config['UPLOAD_FOLDER'] = upload_folder
+    app.config['CONTENT_FOLDER'] = content_folder
     app.config['DB'] = config_to_db_session(config, Base)
     app.run(debug=config.get('debug'))
 

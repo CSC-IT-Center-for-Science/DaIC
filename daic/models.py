@@ -2,6 +2,8 @@ from sqlalchemy import (Column, BigInteger, Integer, String, Text,
                         DateTime, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
 
+import uuid
+
 Base = declarative_base()
 
 
@@ -34,6 +36,9 @@ class Container(Base, Serializable):
     create_ts = Column(DateTime)
     access_ts = Column(DateTime)
 
+    def __init__(self):
+        self.uuid = uuid.uuid1().get_hex()
+
 
 class File(Base, Serializable):
     __tablename__ = 'resource'
@@ -43,11 +48,15 @@ class File(Base, Serializable):
     name = Column(String(255))
     uuid = Column(String(32))
     container = Column(Integer, ForeignKey('container.id'))
+    content = Column(Integer, ForeignKey('content.id'))
     meta = Column(Text)
+
+    def __init__(self):
+        self.uuid = uuid.uuid1().get_hex()
 
 
 class Content(Base, Serializable):
-    __tablename__ = 'base'
+    __tablename__ = 'content'
     __public__ = ['name', 'uri', 'uuid', 'size', 'checksum']
 
     id = Column(Integer, primary_key=True)
@@ -56,9 +65,15 @@ class Content(Base, Serializable):
     size = Column(BigInteger)
     checksum = Column(String(64))
 
+    def __init__(self):
+        self.uuid = uuid.uuid1().get_hex()
+
 
 class UploadToken(Base):
     __tablename__ = 'uploadtoken'
 
     id = Column(Integer, primary_key=True)
     uuid = Column(String(32))
+
+    def __init__(self):
+        self.uuid = uuid.uuid1().get_hex()
