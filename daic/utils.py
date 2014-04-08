@@ -5,6 +5,7 @@ from getpass import getpass
 from os import getenv
 from functools import wraps
 
+import hashlib
 import logging
 
 
@@ -37,6 +38,14 @@ def config_to_db_session(config, Base):
         event.listen(engine, 'connect', _fk_pragma_on_connect)
     Base.metadata.create_all(bind=engine)
     return sessionmaker(bind=engine)()
+
+
+def calculate_sha1(fn):
+    with open(fn, 'rb') as f:
+        h = hashlib.sha1()
+        for block in f:
+            h.update(block)
+        return h.hexdigest()
 
 
 def func_debug(func):

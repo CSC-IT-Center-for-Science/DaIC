@@ -2,7 +2,6 @@ from flask import (abort, jsonify, request, send_from_directory)
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
-import hashlib
 import json
 import uuid
 import os
@@ -10,6 +9,7 @@ import shutil
 
 from daic.models import Container, Content, File, UploadToken
 from daic.www import app, with_db_session, with_manager_socket
+from daic.utils import calculate_sha1
 
 
 @with_db_session
@@ -137,29 +137,30 @@ def api_get_container(session, container_id):
 @with_db_session
 def api_clone_container(session, container_id):
     containers = dict([(x.uuid, x) for x in session.query(Container).all()])
-    print containers
+
     if container_id not in containers:
         return abort(404)
+
     container = containers[container_id]
 
-    clone = Container()
-    clone.name = container.name
-    clone.create_ts = datetime.utcnow()
-    session.add(clone)
-    session.commit()
-    session.refresh(clone)
+    cont_clone = Container()
+    cont_clone.name = container.name
+    cont_clone.create_ts = datetime.utcnow()
 
-    for file_obj in session.query(File).filter_by(container=container.id).\
-            all():
+    session.add(cont_clone)
+    session.commit()
+    session.refresh(cont_clone)
+
+    for obj in session.query(File).filter_by(container=container.id).all():
         file_clone = File()
-        file_clone.name = file_obj.name
-        file_clone.content = file_obj.content
-        file_clone.container = clone.id
+        file_clone.name = obj.name
+        file_clone.content = obj.content
+        file_clone.container = cont_clone.id
         file_clone.meta = ""
         session.add(file_clone)
         session.commit()
 
-    return jsonify({'uuid': clone.uuid})
+    return jsonify({'uuid': cont_clone.uuid})
 
 
 @app.route('/v1/containers/<container_id>/files/<file_id>', methods=['GET'])
@@ -171,6 +172,31 @@ def api_get_file_from_container(session, container_id, file_id):
     resource = get_file(container_id, file_id)
     if not resource:
         abort(404)
+
+    return jsonify(resource.to_dict())
+
+
+@app.route('/v1/containers/<container_id>/files/<file_id>', methods=['POST'])
+@with_db_session
+def api_add_metadata_field(session, container_id, file_id):
+    """
+    Add or update fields in the metadata dictionary of a file object
+    """
+    params = dict(request.form.items())
+    resource = get_file(container_id, file_id)
+    try:
+        meta = resource.meta
+    except:
+        meta = {}
+    for k, v in params.items():
+        if v:
+            meta[k] = v
+        elif k in meta and not v:
+            meta.pop(k)
+    resource.meta = meta
+    session.merge(resource)
+    session.commit()
+
     return jsonify(resource.to_dict())
 
 
@@ -218,13 +244,9 @@ def api_create_file(session, container_id):
             upload_path = os.path.join(app.config['UPLOAD_FOLDER'], tmp_name)
             upload.save(upload_path)
 
-            with open(upload_path, 'rb') as f:
-                h = hashlib.sha1()
-                for block in f:
-                    h.update(block)
-                checksum = h.hexdigest()
-
+            checksum = calculate_sha1(upload_path)
             content = get_content_by_checksum(checksum)
+
             if not content:
                 content = Content()
                 content.checksum = checksum
@@ -239,8 +261,6 @@ def api_create_file(session, container_id):
             file = File()
             file.name = filename
             file.container = container.id
-            file.meta = ""
-
             file.content = content.id
 
             session.add(file)
@@ -248,7 +268,6 @@ def api_create_file(session, container_id):
 
             return jsonify({'id': file.uuid})
         else:
-            print "no files to upload"
             abort(400)
 
 

@@ -1,8 +1,10 @@
 from sqlalchemy import (Column, BigInteger, Integer, String, Text,
                         DateTime, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
 
 import uuid
+import json
 
 Base = declarative_base()
 
@@ -49,10 +51,22 @@ class File(Base, Serializable):
     uuid = Column(String(32))
     container = Column(Integer, ForeignKey('container.id'))
     content = Column(Integer, ForeignKey('content.id'))
-    meta = Column(Text)
+    _meta = Column("meta", Text)
 
     def __init__(self):
         self.uuid = uuid.uuid1().get_hex()
+
+    @hybrid_property
+    def meta(self):
+        try:
+            metadata = json.loads(self._meta)
+        except:
+            metadata = {}
+        return metadata
+
+    @meta.setter
+    def meta(self, metadata):
+        self._meta = json.dumps(metadata)
 
 
 class Content(Base, Serializable):
