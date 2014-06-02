@@ -2,6 +2,7 @@ from flask import (abort, jsonify, request, send_from_directory)
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
+import logging
 import json
 import uuid
 import os
@@ -13,17 +14,17 @@ from daic.utils import calculate_sha1
 
 
 @with_db_session
-def get_container(session, container_id):
-    return session.query(Container).filter_by(uuid=container_id).first()
+def get_container(session, container_uuid):
+    return session.query(Container).filter_by(uuid=container_uuid).first()
 
 
 @with_db_session
-def get_file(session, container_id, file_id):
-    container = get_container(container_id)
+def get_file(session, container_uuid, file_uuid):
+    container = get_container(container_uuid)
     if not container:
         abort(404)
     return session.query(File).filter_by(container=container.id,
-                                         uuid=file_id).first()
+                                         uuid=file_uuid).first()
 
 
 @with_db_session
@@ -64,7 +65,7 @@ def remove_content(session, file_obj):
         path = os.path.join(app.config['CONTENT_FOLDER'], content.checksum)
         os.remove(path)
     except:
-        print "Unable to remove path", path
+        logging.warn("Unable to remove path", path)
     session.delete(content)
     session.commit()
 
@@ -82,8 +83,8 @@ def api_list_connectors(socket):
     XXX: REQ socket operations might hang if manager process is unavailable
     """
     command = {'cmd': 'active'}
-    socket.send(json.dumps(command))
-    resp = socket.recv()
+    socket.send_string(json.dumps(command))
+    resp = socket.recv_string()
     encoded = json.loads(resp)
     return json.dumps([{'id': k, 'updated': v} for k, v in encoded.items()])
 
@@ -97,8 +98,8 @@ def api_list_connector_files(socket, connector_id):
     XXX: REQ socket operations might hang if manager process is unavailable
     """
     command = {'cmd': 'list_files', 'connector': connector_id}
-    socket.send(json.dumps(command))
-    resp = socket.recv()
+    socket.send_string(json.dumps(command))
+    resp = socket.recv_string()
     encoded = json.loads(resp)
     for i in range(len(encoded)):
         encoded[i] = {'id': i, 'name': encoded[i]}
@@ -233,6 +234,16 @@ def api_create_file(session, container_id):
     XXX: Streamed upload and hash calculation are required for efficient
     uploads.
     """
+    try:
+        os.stat(app.config['UPLOAD_FOLDER'])
+    except OSError:
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+
+    try:
+        os.stat(app.config['CONTENT_FOLDER'])
+    except OSError:
+        os.makedirs(app.config['CONTENT_FOLDER'])
+
     if request.method == 'POST':
         container = get_container(container_id)
         if not container:
@@ -240,7 +251,7 @@ def api_create_file(session, container_id):
         upload = request.files['file']
         if upload:
             filename = secure_filename(upload.filename)
-            tmp_name = uuid.uuid1().get_hex()
+            tmp_name = uuid.uuid1().hex
             upload_path = os.path.join(app.config['UPLOAD_FOLDER'], tmp_name)
             upload.save(upload_path)
 

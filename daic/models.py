@@ -39,7 +39,7 @@ class Container(Base, Serializable):
     access_ts = Column(DateTime)
 
     def __init__(self):
-        self.uuid = uuid.uuid1().get_hex()
+        self.uuid = uuid.uuid1().hex
 
 
 class File(Base, Serializable):
@@ -54,7 +54,7 @@ class File(Base, Serializable):
     _meta = Column("meta", Text)
 
     def __init__(self):
-        self.uuid = uuid.uuid1().get_hex()
+        self.uuid = uuid.uuid1().hex
 
     @hybrid_property
     def meta(self):
@@ -80,7 +80,7 @@ class Content(Base, Serializable):
     checksum = Column(String(64))
 
     def __init__(self):
-        self.uuid = uuid.uuid1().get_hex()
+        self.uuid = uuid.uuid1().hex
 
 
 class UploadToken(Base):
@@ -90,4 +90,4 @@ class UploadToken(Base):
     uuid = Column(String(32))
 
     def __init__(self):
-        self.uuid = uuid.uuid1().get_hex()
+        self.uuid = uuid.uuid1().hex

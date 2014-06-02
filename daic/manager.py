@@ -1,5 +1,6 @@
 import zmq
 import json
+import logging
 from datetime import datetime
 
 from daic.utils import config_to_db_session
@@ -38,7 +39,7 @@ class DaICManager(object):
         poll.register(sock, zmq.POLLIN)
         socks = dict(poll.poll(timeout))
         if sock in socks:
-            return (True, sock.recv())
+            return (True, sock.recv_string())
         else:
             return (False, None)
 
@@ -50,7 +51,7 @@ class DaICManager(object):
                 response = method(**msg)
                 return response
             except AttributeError:
-                print "Invalid cmd message received"
+                logging.warn("Invalid cmd message received")
                 return json.dumps({'error': 'unknown command'})
         else:
             return json.dumps({'error': 'invalid command'})
@@ -65,13 +66,13 @@ class DaICManager(object):
             request = {'cmd': 'list:files'}
             client_sock = self.clients[connector].get('sock')
             if client_sock:
-                client_sock.send(json.dumps(request))
+                client_sock.send_string(json.dumps(request))
                 status, resp = self._poll_sock(client_sock, POLL_TIMEOUT)
                 if status:
                     encoded = json.loads(resp)
                     return json.dumps(encoded)
                 else:
-                    print "no response from connector"
+                    logging.warn("no response from connector")
                     client_sock.setsockopt(zmq.LINGER, 0)
                     client_sock.close()
                     self.clients.pop(connector)
@@ -91,7 +92,7 @@ class DaICManager(object):
                         sock.connect(endpoint)
                         self.clients[id]['sock'] = sock
                     except zmq.error.ZMQError:
-                        print "received invalid endpoint", endpoint
+                        logging.warn("received invalid endpoint", endpoint)
             self.clients[id]['updated'] = datetime.utcnow()
 
     def loop(self):
@@ -105,20 +106,20 @@ class DaICManager(object):
             now = datetime.utcnow()
 
             if self.ctl in socks:
-                raw = self.ctl.recv()
+                raw = self.ctl.recv_string()
                 msg = json.loads(raw)
                 response = self._dispatch_command(msg)
-                self.ctl.send(response)
+                self.ctl.send_string(response)
 
             if self.sync in socks:
-                raw = self.sync.recv()
+                raw = self.sync.recv_string()
                 msg = json.loads(raw)
                 response = self._dispatch_command(msg)
 
             if (now - prev).total_seconds() > IDLE_TIMEOUT:
                 self.clients = self.prune_dead_clients(now, self.clients)
-                print "Publishing message: ping"
-                self.publisher.send(json.dumps({'cmd': 'ping'}))
+                logging.warn("Publishing message: ping")
+                self.publisher.send_string(json.dumps({'cmd': 'ping'}))
                 prev = now
 
     def prune_dead_clients(self, ts_now, clients):

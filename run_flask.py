@@ -12,7 +12,7 @@ def main():
     parser.add_argument('config_file')
     args = parser.parse_args()
 
-    config = yaml.load(file(args.config_file))
+    config = yaml.load(open(args.config_file))
     upload_folder = config.get('uploap_folder', '/tmp/flask')
     content_folder = config.get('content_folder', '/tmp/daic')
 
